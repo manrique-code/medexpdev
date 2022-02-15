@@ -1,94 +1,40 @@
-const getDb = require("../db");
+const getDb = require("../mongodb");
 let db = null;
 
 class Pacientes {
+  collection = null;
   constructor() {
     getDb()
       .then((database) => {
         db = database;
+        this.collection = db.collection("Pacientes");
         if (process.env.MIGRATE === "true") {
-          const createStatement =
-            "CREATE TABLE IF NOT EXISTS pacientes (id INTEGER PRIMARY KEY AUTOINCREMENT, identidad TEXT, nombre TEXT, apellidos TEXT, email TEXT, telefono TEXT);";
-          db.run(createStatement);
         }
       })
       .catch((err) => {
         console.error(err);
       });
   }
-
-  new(nombre, apellidos, identidad, telefono, correo) {
-    return new Promise((accept, reject) => {
-      db.run(
-        "INSERT INTO pacientes (identidad, nombre, apellidos, email, telefono) VALUES (?, ?, ?, ?, ?)",
-        [identidad, nombre, apellidos, correo, telefono],
-        (err, rslt) => {
-          if (err) {
-            console.error(err);
-            reject(err);
-          }
-          accept(rslt);
-        }
-      );
-    });
+  // Es importante mantener esta atomicidad, porque al momento de realizar cambios, la lógica de negocios no se afectada.
+  async new(nombre, apellidos, identidad, telefono, correo) {
+    const newPaciente = {
+      nombre,
+      apellidos,
+      identidad,
+      telefono,
+      correo,
+    };
+    const rslt = await this.collection.insertOne(newPaciente);
+    return rslt;
   }
 
-  getAll() {
-    return new Promise((accept, reject) => {
-      db.all("SELECT * FROM pacientes;", (err, rows) => {
-        if (err) {
-          console.error(err);
-          reject(err);
-        } else {
-          accept(rows);
-        }
-      });
-    });
-  }
+  async getAll() {}
 
-  getById(id) {
-    return new Promise((accept, reject) => {
-      db.get("SELECT * FROM pacientes WHERE id = ?", [id], (err, row) => {
-        if (err) {
-          console.error(err);
-          reject(err);
-        } else {
-          accept(row);
-        }
-      });
-    });
-  }
+  async getById(id) {}
 
-  updateOne(id, nombre, apellidos, identidad, telefono, correo) {
-    return new Promise((accept, reject) => {
-      const updateStatement =
-        "UPDATE pacientes SET nombre = ?, apellidos = ?, identidad = ?, telefono = ?, email = ? WHERE id = ?;";
-      db.run(
-        updateStatement,
-        [nombre, apellidos, identidad, telefono, correo, id],
-        function (err) {
-          if (err) {
-            reject(err);
-          } else {
-            accept(this);
-          }
-        }
-      );
-    });
-  }
+  async updateOne(id, nombre, apellidos, identidad, telefono, correo) {}
 
-  deleteOne(id) {
-    return new Promise((accept, reject) => {
-      const deleteStatement = "DELETE FROM pacientes WHERE id = ?;";
-      db.run(deleteStatement, [id], function (err) {
-        if (err) {
-          reject(err);
-        } else {
-          accept(this);
-        }
-      });
-    });
-  }
+  async deleteOne(id) {}
 }
 
 module.exports = Pacientes;

@@ -112,6 +112,18 @@ router.put("/update/:id", async (req, res) => {
   }
 });
 
+router.get("/one/:id", (req, res) => {
+  let { id } = req.params;
+  id = Number(id);
+  productModel.getOne(id, (err, rslts) => {
+    if (err) {
+      res.status(500).json({ status: "failed" });
+    } else {
+      res.status(200).json({ status: "ok", rslts });
+    }
+  });
+});
+
 router.delete("/delete/:id", async (req, res) => {
   try {
     const { id } = req.params;
