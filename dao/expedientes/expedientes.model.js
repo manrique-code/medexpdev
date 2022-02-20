@@ -1,14 +1,14 @@
-const getDb = require("../db");
+const { ObjectId } = require("mongodb");
+const getDb = require("../mongodb");
 let db = null;
 class Expedientes {
+  collection = null;
   constructor() {
     getDb()
       .then((database) => {
         db = database;
+        this.collection = db.collection("Expedientes");
         if (process.env.MIGRATE === "true") {
-          const createStatement =
-            "CREATE TABLE IF NOT EXISTS expedientes(id INTEGER PRIMARY KEY AUTOINCREMENT, identidad TEXT, fecha TEXT, descripcion TEXT, observacion TEXT);";
-          db.run(createStatement);
         }
       })
       .catch((err) => {
@@ -19,89 +19,115 @@ class Expedientes {
   /**
    * Método para insertar nuevos expedientes en la base de datos.
    */
-  new(identidad, fecha, descripcion, observacion) {
-    return new Promise((accept, reject) => {
-      db.run(
-        "INSERT INTO expedientes(identidad, fecha, descripcion, observacion) VALUES(?, ?, ?, ?);",
-        [identidad, fecha, descripcion, observacion],
-        (err, result) => {
-          if (err) {
-            console.error(err);
-            reject(err);
-          }
-          accept(result);
-        }
-      );
-    });
+  async new(
+    identidad,
+    descripcion,
+    observacion,
+    fecha = new Date().toISOString()
+  ) {
+    const newExpedientes = { identidad, fecha, descripcion, observacion };
+    const rslt = await this.collection.insertOne(newExpedientes);
+    return rslt;
   }
 
   /**
    * Método para obtener todos los expedientes de la base de datos.
    */
-  getAll() {
-    return new Promise((accept, reject) => {
-      db.all("SELECT * FROM expedientes;", (err, rows) => {
-        if (err) {
-          console.error(err);
-          reject(err);
-        } else {
-          accept(rows);
-        }
-      });
-    });
+  async getAll() {
+    const cursor = this.collection.find({});
+    const documents = await cursor.toArray();
+    return documents;
   }
 
   /**
-   * Método para obtener un registro por ID.
+   * Method to retrieve data in a faceted paradigm.
+   * This is done to improve database query response time,
+   * database quality life and DDoS attacks aswell.
    */
-  getRegisterByID(id) {
-    return new Promise((accept, reject) => {
-      db.get("SELECT * FROM expedientes WHERE id = ?;", [id], (err, row) => {
-        if (err) {
-          console.error(err);
-          reject(err);
-        } else {
-          accept(row);
-        }
-      });
-    });
+  async getFaceted(page, items, filter = {}) {
+    const cursor = this.collection.find(filter);
+    const totalItems = await cursor.count();
+    cursor.skip((page - 1) * items);
+    cursor.limit(items);
+
+    const resultados = await cursor.toArray();
+    return {
+      totalItems,
+      page,
+      items,
+      totalPages: Math.ceil(totalItems / items),
+      resultados,
+    };
+  }
+
+  /**
+   * Método para obtener un expediente por el número de identidad.
+   * When we are using mongo's find method, it returns a cursor.
+   * which mean that we have to parse it to an array in order
+   * to return an iterate every document.
+   */
+  async getRegisterByID(identidad) {
+    const filter = { identidad };
+    console.log(filter);
+    const documento = await this.collection.find(filter).toArray();
+    return documento;
+  }
+
+  /**
+   * Method to add a tag even if exists in the database
+   */
+  async updateAddTag(id, tagEntry) {
+    const updateCmd = {
+      $push: {
+        tags: tagEntry,
+      },
+    };
+    const filter = { _id: new ObjectId(id) };
+    const result = await this.collection.updateOne(filter, updateCmd);
+    return result;
+  }
+
+  async updateAddTagSet(id, tagEntry) {
+    const updateCmd = {
+      $addToSet: {
+        tags: tagEntry,
+      },
+    };
+    const filter = { _id: new ObjectId(id) };
+    const result = await this.collection.updateOne(filter, updateCmd);
+    return result;
   }
 
   /**
    * Método para actualizar el expediente de los pacientes
    */
-  updateOneExpediente(id, identidad, fecha, descripcion, observacion) {
-    return new Promise((accept, reject) => {
-      const sqlQuery =
-        "UPDATE expedientes SET identidad = ?, fecha = ?, descripcion = ?, observacion = ? WHERE id = ?;";
-      db.run(
-        sqlQuery,
-        [identidad, fecha, descripcion, observacion, id],
-        function (err) {
-          if (err) {
-            reject(err);
-          } else {
-            accept(this);
-          }
-        }
-      );
-    });
+  async updateOneExpediente(
+    id,
+    identidad,
+    descripcion,
+    observacion,
+    fecha = new Date().toISOString()
+  ) {
+    const filter = { _id: new ObjectId(id) };
+    const updateCmd = {
+      $set: {
+        identidad,
+        fecha,
+        descripcion,
+        observacion,
+      },
+    };
+    const rslt = await this.collection.updateOne(filter, updateCmd);
+    return rslt;
   }
 
   /**
    * Método para eliminar un paciente de los expedientes
    */
-  deleteOneExpediente(id) {
-    return new Promise((accept, reject) => {
-      const sqlQuery = "DELETE FROM expedientes WHERE id = ?;";
-      db.run(sqlQuery, [id], function (err) {
-        if (err) {
-          reject(err);
-        } else {
-          accept(this);
-        }
-      });
-    });
+  async deleteOneExpediente(id) {
+    const filter = { _id: new ObjectId(id) };
+    const rslt = await this.collection.deleteOne(filter);
+    return rslt;
   }
 }
 
