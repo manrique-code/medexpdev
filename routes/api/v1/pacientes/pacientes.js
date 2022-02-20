@@ -84,7 +84,7 @@ router.get("/byname/:name/:page/:items", async (req, res) => {
 router.get("/byid/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    const row = await pacienteModel.getById(parseInt(id));
+    const row = await pacienteModel.getById(id);
     res.status(200).json({ status: "ok", paciente: row });
   } catch (error) {
     console.log(error);
@@ -143,6 +143,60 @@ router.put("/update/:id", async (req, res) => {
       telefono,
       email
     );
+    res.status(200).json({
+      status: "ok",
+      result,
+    });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({
+      status: "failed",
+    });
+  }
+});
+
+/**
+ * Es tanta la flexibilidad de MongoDB que los documentos no pueden tener la misma estructura
+ */
+router.put("/addtag/:id", async (req, res) => {
+  try {
+    const { tag } = req.body;
+    const { id } = req.params;
+    const result = await pacienteModel.updateAddTag(id, tag);
+    res.status(200).json({
+      status: "ok",
+      result,
+    });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({
+      status: "failed",
+    });
+  }
+});
+
+router.put("/addtagset/:id", async (req, res) => {
+  try {
+    const { tag } = req.body;
+    const { id } = req.params;
+    const result = await pacienteModel.updateAddTagSet(id, tag);
+    res.status(200).json({
+      status: "ok",
+      result,
+    });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({
+      status: "failed",
+    });
+  }
+});
+
+router.put("/removetag/:id", async (req, res) => {
+  try {
+    const { tag } = req.body;
+    const { id } = req.params;
+    const result = await pacienteModel.deleteTagSet(id, tag);
     res.status(200).json({
       status: "ok",
       result,
